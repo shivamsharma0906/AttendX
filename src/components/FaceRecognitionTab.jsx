@@ -1,24 +1,30 @@
 /**
  * FaceRecognitionTab.jsx — Premium 1:N Face Recognition Kiosk
  *
- * Flow:
- *  1. Backend health check on mount
- *  2. Fetch all employee encodings from Firestore
- *  3. Auto-capture webcam frame every ~2.5s
- *  4. Send to /recognize-face with all encodings
- *  5. On match → fetch employee name → show greeting + mark attendance
- *  6. Auto-reset after 5s
+ * Modes:
+ *  REGISTRATION:
+ *    1. Ask for employee name
+ *    2. Capture 3 images from different angles
+ *    3. Send to backend for encoding
+ *    4. Store in Firestore
+ *
+ *  ATTENDANCE:
+ *    1. Auto-capture every ~2.5s
+ *    2. Send to /recognize-face with all encodings
+ *    3. On match → fetch employee name → mark attendance
+ *    4. Auto-reset after 5s
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import {
   Scan, CheckCircle2, XCircle, Wifi, WifiOff,
-  RefreshCw, Users, Star, Clock, Shield,
+  RefreshCw, Users, Star, Clock, Shield, Plus, Camera, Upload, ArrowRight,
 } from 'lucide-react';
 import FaceScanner from './FaceScanner';
-import { recognizeFace, checkBackendHealth } from '../services/faceApi';
+import { recognizeFace, checkBackendHealth, registerFace } from '../services/faceApi';
 import {
   fetchAllEmployeeEncodings,
   getEmployeeById,
@@ -28,12 +34,114 @@ import useStore from '../store/useAppStore';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const GREETING_DISPLAY_MS = 5000;
-const RESET_DELAY_MS       = 5500;
-const SCAN_COOLDOWN_MS     = 2500;
+const RESET_DELAY_MS = 5500;
+const SCAN_COOLDOWN_MS = 2500;
+const ANGLES = ['Front', 'Left Turn', 'Right Turn'];
+
+// ── Registration Form ─────────────────────────────────────────────────────────
+const RegistrationForm = ({ onSubmit, loading }) => {
+  const [name, setName] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (name.trim()) {
+      onSubmit(name.trim());
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      style={{
+        background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(139,92,246,0.05))',
+        borderRadius: 20,
+        padding: '2rem',
+        border: '1px solid rgba(99,102,241,0.2)',
+      }}
+    >
+      <h3 style={{ margin: '0 0 1rem', fontSize: '1.1rem', fontWeight: 800, color: '#fff' }}>
+        📝 Employee Registration
+      </h3>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+        <input
+          type="text"
+          placeholder="Enter your full name..."
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          disabled={loading}
+          autoFocus
+          style={{
+            flex: 1,
+            minWidth: '250px',
+            padding: '0.75rem 1rem',
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: '8px',
+            color: '#fff',
+            fontSize: '0.95rem',
+            fontFamily: 'inherit',
+          }}
+        />
+        <button
+          type="submit"
+          disabled={!name.trim() || loading}
+          style={{
+            padding: '0.75rem 1.5rem',
+            background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '8px',
+            fontWeight: 800,
+            cursor: loading ? 'not-allowed' : 'pointer',
+            opacity: loading ? 0.6 : 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            fontSize: '0.9rem',
+          }}
+        >
+          {loading ? <RefreshCw size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Camera size={16} />}
+          {loading ? 'Processing...' : 'Next'}
+        </button>
+      </form>
+    </motion.div>
+  );
+};
+
+// ── Image Capture Step ────────────────────────────────────────────────────────
+const CaptureStepper = ({ currentStep, angles }) => (
+  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '1.5rem' }}>
+    {angles.map((angle, idx) => (
+      <motion.div
+        key={idx}
+        style={{
+          flex: 1,
+          padding: '1rem',
+          borderRadius: '12px',
+          background: idx < currentStep ? '#10b981' : idx === currentStep ? '#f59e0b' : 'rgba(255,255,255,0.05)',
+          border: idx === currentStep ? '2px solid #f59e0b' : '1px solid rgba(255,255,255,0.1)',
+          textAlign: 'center',
+          color: '#fff',
+          fontSize: '0.8rem',
+          fontWeight: 700,
+        }}
+        animate={{
+          scale: idx === currentStep ? 1.05 : 1,
+          boxShadow: idx === currentStep ? '0 0 20px rgba(245,158,11,0.4)' : 'none',
+        }}
+      >
+        {idx < currentStep ? '✓' : `${idx + 1}`}
+        <p style={{ margin: '0.25rem 0 0', fontSize: '0.7rem' }}>{angle}</p>
+      </motion.div>
+    ))}
+  </div>
+);
 
 // ── Confidence Bar ────────────────────────────────────────────────────────────
 const ConfidenceBar = ({ value }) => {
-  const pct   = Math.round(value * 100);
+  const pct = Math.round(value * 100);
   const color = pct >= 80 ? '#D4AF37' : pct >= 60 ? '#10b981' : '#f59e0b';
   return (
     <div style={{ marginTop: '1rem' }}>
@@ -63,7 +171,7 @@ const ConfidenceBar = ({ value }) => {
 };
 
 // ── Greeting Card ─────────────────────────────────────────────────────────────
-const GreetingCard = ({ name, confidence, time }) => (
+const GreetingCard = ({ name, confidence, time, isRegistration, particleRandoms }) => (
   <motion.div
     initial={{ opacity: 0, scale: 0.85, y: 20 }}
     animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -132,7 +240,7 @@ const GreetingCard = ({ name, confidence, time }) => (
           textTransform: 'uppercase',
           letterSpacing: '0.18em',
         }}>
-          Attendance Marked ✅
+          {isRegistration ? '✅ Face Registered' : '✅ Attendance Marked'}
         </p>
         <h2 style={{
           margin: '0 0 0.5rem',
@@ -148,10 +256,10 @@ const GreetingCard = ({ name, confidence, time }) => (
         </h2>
         <p style={{ margin: '0 0 0.25rem', fontSize: '0.82rem', color: '#64748b', fontWeight: 500 }}>
           <Clock size={13} style={{ display: 'inline', marginRight: 5, verticalAlign: 'middle', color: '#94a3b8' }} />
-          Checked in at <strong style={{ color: '#94a3b8' }}>{time}</strong>
+          {isRegistration ? 'Registration complete' : `Checked in at ${time}`}
         </p>
 
-        <ConfidenceBar value={confidence} />
+        {!isRegistration && <ConfidenceBar value={confidence} />}
 
         <p style={{ margin: '1.25rem 0 0', fontSize: '0.72rem', color: '#334155', fontWeight: 600 }}>
           Resetting in a moment…
@@ -159,22 +267,25 @@ const GreetingCard = ({ name, confidence, time }) => (
       </motion.div>
 
       {/* Particle sparkles */}
-      {[...Array(6)].map((_, i) => (
-        <motion.div key={i}
-          initial={{ opacity: 0, scale: 0 }}
-          animate={{ opacity: [0, 1, 0], scale: [0, 1, 0], x: (Math.random() - 0.5) * 120, y: (Math.random() - 0.5) * 120 }}
-          transition={{ delay: 0.3 + i * 0.08, duration: 1.2 }}
-          style={{
-            position: 'absolute',
-            top: '45%', left: '50%',
-            width: 6, height: 6,
-            borderRadius: '50%',
-            background: '#D4AF37',
-            boxShadow: '0 0 8px #D4AF37',
-            zIndex: 1,
-          }}
-        />
-      ))}
+      {[...Array(6)].map((_, i) => {
+        const rand = particleRandoms?.[i] || { x: 0, y: 0 };
+        return (
+          <motion.div key={i}
+            initial={{ opacity: 0, scale: 0 }}
+            animate={{ opacity: [0, 1, 0], scale: [0, 1, 0], x: rand.x, y: rand.y }}
+            transition={{ delay: 0.3 + i * 0.08, duration: 1.2 }}
+            style={{
+              position: 'absolute',
+              top: '45%', left: '50%',
+              width: 6, height: 6,
+              borderRadius: '50%',
+              background: '#D4AF37',
+              boxShadow: '0 0 8px #D4AF37',
+              zIndex: 1,
+            }}
+          />
+        );
+      })}
     </div>
   </motion.div>
 );
@@ -214,48 +325,131 @@ const NoMatchCard = ({ onRetry }) => (
 const FaceRecognitionTab = () => {
   const { employees: localEmployees, addRecord } = useStore();
 
-  const [scanStatus, setScanStatus]     = useState('idle');    // idle | scanning | success | error
-  const [greeting, setGreeting]         = useState(null);      // { name, confidence, time }
-  const [backendOnline, setBackendOnline] = useState(null);    // null=checking, true, false
-  const [encodings, setEncodings]       = useState([]);        // [{employeeId, encoding}]
-  const [loadingEncodings, setLoadingEncodings] = useState(false);
-  const [totalEmployees, setTotalEmployees] = useState(0);
-  const [scanCount, setScanCount]       = useState(0);
-  const [lastError, setLastError]       = useState('');
-  const isProcessingRef = useRef(false);
-  const resetTimerRef   = useRef(null);
+  // ── Registration States ──────────────────────────────────────────────────────
+  const [regStep, setRegStep] = useState(0);              // 0=form, 1-3=capture steps
+  const [regName, setRegName] = useState('');             // Employee name being registered
+  const [regImages, setRegImages] = useState([]);         // Captured images
+  const [regLoading, setRegLoading] = useState(false);    // Registration in progress
+  const [regError, setRegError] = useState('');           // Registration error
 
-  // ── On mount: backend health + fetch encodings ────────────────────────────
+  // ── Attendance States ────────────────────────────────────────────────────────
+  const [scanStatus, setScanStatus] = useState('idle');   // idle | scanning | success | error
+  const [greeting, setGreeting] = useState(null);         // { name, confidence, time, isReg }
+  const [mode, setMode] = useState('attendance');         // 'attendance' | 'registration'
+  const [backendOnline, setBackendOnline] = useState(null); // null=checking, true, false
+  const [encodings, setEncodings] = useState([]);         // [{employeeId, encoding}]
+  const [totalEmployees, setTotalEmployees] = useState(0);
+  const [scanCount, setScanCount] = useState(0);
+  const [lastError, setLastError] = useState('');
+  const isProcessingRef = useRef(false);
+  const resetTimerRef = useRef(null);
+  const particleRandomsRef = useRef(null);  // Pre-generated random values for particles
+
+  // ── Initialize backend ───────────────────────────────────────────────────────
   useEffect(() => {
+    // Generate random values for particles once on mount
+    if (!particleRandomsRef.current) {
+      particleRandomsRef.current = [...Array(6)].map(() => ({
+        x: (Math.random() - 0.5) * 120,
+        y: (Math.random() - 0.5) * 120,
+      }));
+    }
+
     let mounted = true;
     const init = async () => {
-      // Health check
       const health = await checkBackendHealth();
       if (!mounted) return;
       setBackendOnline(health.status === 'ok');
 
       if (health.status === 'ok') {
-        // Fetch Firestore encodings
-        setLoadingEncodings(true);
         const encs = await fetchAllEmployeeEncodings();
         if (!mounted) return;
         setEncodings(encs);
         setTotalEmployees(encs.length);
-        setLoadingEncodings(false);
-        setScanStatus('scanning');
+        if (mode === 'attendance') setScanStatus('scanning');
       }
     };
     init();
     return () => { mounted = false; clearTimeout(resetTimerRef.current); };
-  }, []);
+  }, [mode]);
 
-  // ── Handle auto-capture from FaceScanner ──────────────────────────────────
+  // ── Registration: Handle form submission ──────────────────────────────────
+  const handleRegistrationSubmit = (name) => {
+    setRegName(name);
+    setRegStep(1);
+    setRegImages([]);
+    setRegError('');
+  };
+
+  // ── Registration: Handle image capture ────────────────────────────────────
+  const handleRegistrationCapture = (base64Image) => {
+    if (regStep < 1 || regStep > 3) return;
+
+    const newImages = [...regImages, base64Image];
+    setRegImages(newImages);
+
+    if (regStep === 3) {
+      // All 3 images captured, send to backend
+      submitRegistration(newImages);
+    } else {
+      // Move to next step
+      setRegStep(regStep + 1);
+    }
+  };
+
+  // ── Registration: Submit to backend ──────────────────────────────────────
+  const submitRegistration = async (images) => {
+    setRegLoading(true);
+    setRegError('');
+
+    try {
+      const employeeId = `emp-${Date.now()}`;
+      const result = await registerFace(images, employeeId, regName);
+
+      if (result.success) {
+        // Show success message
+        setGreeting({
+          name: regName,
+          confidence: 1.0,
+          time: format(new Date(), 'HH:mm'),
+          isReg: true,
+        });
+
+        // Reset registration form after 3 seconds
+        setTimeout(() => {
+          setRegStep(0);
+          setRegName('');
+          setRegImages([]);
+          setRegError('');
+          setGreeting(null);
+          setMode('attendance');
+          handleReloadEncodings();
+        }, 3000);
+      }
+    } catch (err) {
+      console.error('[Registration Error]', err);
+      setRegError(err.message || 'Registration failed. Please try again.');
+      setRegStep(0);
+      setRegImages([]);
+    } finally {
+      setRegLoading(false);
+    }
+  };
+
+  // ── Attendance: Handle auto-capture ──────────────────────────────────────
   const handleCapture = useCallback(async (base64Image) => {
     if (isProcessingRef.current || scanStatus !== 'scanning') return;
-    if (encodings.length === 0) return;
+
+    // Increment scan count regardless of encodings
+    setScanCount(c => c + 1);
+
+    // Only process if we have registered faces
+    if (encodings.length === 0) {
+      isProcessingRef.current = false;
+      return;
+    }
 
     isProcessingRef.current = true;
-    setScanCount(c => c + 1);
 
     try {
       const result = await recognizeFace(base64Image, encodings);
@@ -263,7 +457,6 @@ const FaceRecognitionTab = () => {
       if (result.matched && result.employeeId) {
         setScanStatus('success');
 
-        // Fetch employee name — try Firestore first, then local store
         let empName = 'Employee';
         const fireEmp = await getEmployeeById(result.employeeId);
         if (fireEmp?.name) {
@@ -273,33 +466,29 @@ const FaceRecognitionTab = () => {
           if (localEmp) empName = localEmp.name;
         }
 
-        const now     = new Date();
+        const now = new Date();
         const todayStr = format(now, 'yyyy-MM-dd');
-        const timeStr  = format(now, 'HH:mm');
+        const timeStr = format(now, 'HH:mm');
 
-        setGreeting({ name: empName, confidence: result.confidence, time: timeStr });
+        setGreeting({ name: empName, confidence: result.confidence, time: timeStr, isReg: false });
 
-        // Mark attendance in local store
         addRecord({
-          id:      `${result.employeeId}-${todayStr}`,
-          empId:   result.employeeId,
-          date:    todayStr,
-          inTime:  timeStr,
+          id: `${result.employeeId}-${todayStr}`,
+          empId: result.employeeId,
+          date: todayStr,
+          inTime: timeStr,
           outTime: '',
-          source:  'face-recognition',
+          source: 'face-recognition',
         });
 
-        // Mark attendance in Firestore (best-effort)
         markAttendanceFirestore(result.employeeId, todayStr, timeStr).catch(console.warn);
 
-        // Auto-reset
         resetTimerRef.current = setTimeout(() => {
           setGreeting(null);
           setScanStatus('scanning');
           isProcessingRef.current = false;
         }, RESET_DELAY_MS);
       } else {
-        // No match — brief pause then keep scanning
         setTimeout(() => { isProcessingRef.current = false; }, SCAN_COOLDOWN_MS);
       }
     } catch (err) {
@@ -309,25 +498,16 @@ const FaceRecognitionTab = () => {
     }
   }, [scanStatus, encodings, localEmployees, addRecord]);
 
-  const handleRetry = () => {
-    setScanStatus('scanning');
-    setGreeting(null);
-    isProcessingRef.current = false;
-    setLastError('');
-  };
-
   const handleReloadEncodings = async () => {
-    setLoadingEncodings(true);
     const encs = await fetchAllEmployeeEncodings();
     setEncodings(encs);
     setTotalEmployees(encs.length);
-    setLoadingEncodings(false);
-    if (scanStatus === 'idle') setScanStatus('scanning');
+    setScanStatus('scanning');
   };
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: 900, margin: '0 auto' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: 1000, margin: '0 auto' }}>
 
       {/* ══ HEADER ══ */}
       <motion.div initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }}>
@@ -345,227 +525,152 @@ const FaceRecognitionTab = () => {
               Kiosk
             </h2>
             <p style={{ margin: 0, color: '#64748b', fontSize: '0.82rem' }}>
-              Automated 1:N face identification · Attendance auto-marked on recognition
+              {mode === 'registration' ? 'Enroll new employees with face capture' : 'Automated 1:N face identification · Attendance auto-marked on recognition'}
             </p>
           </div>
 
-          {/* Status pills */}
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            {/* Backend pill */}
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: '0.4rem',
-              padding: '0.4rem 0.9rem', borderRadius: 99,
-              background: backendOnline === null ? 'rgba(100,116,139,0.12)' :
-                          backendOnline        ? 'rgba(16,185,129,0.1)'  : 'rgba(239,68,68,0.1)',
-              border: `1px solid ${backendOnline === null ? 'rgba(100,116,139,0.2)' :
-                                   backendOnline        ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)'}`,
-              fontSize: '0.72rem', fontWeight: 700,
-              color: backendOnline === null ? '#64748b' : backendOnline ? '#34d399' : '#f87171',
-            }}>
-              {backendOnline === null ? <RefreshCw size={12} style={{ animation: 'spin 1s linear infinite' }} /> :
-               backendOnline          ? <Wifi size={12} />      : <WifiOff size={12} />}
-              {backendOnline === null ? 'Checking…' : backendOnline ? 'Backend Online' : 'Backend Offline'}
-            </div>
-
-            {/* Encodings pill */}
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: '0.4rem',
-              padding: '0.4rem 0.9rem', borderRadius: 99,
-              background: 'rgba(212,175,55,0.08)',
-              border: '1px solid rgba(212,175,55,0.2)',
-              fontSize: '0.72rem', fontWeight: 700, color: '#D4AF37',
-            }}>
-              <Users size={12} />
-              {loadingEncodings ? 'Loading…' : `${totalEmployees} Enrolled`}
-            </div>
+          {/* Mode switcher */}
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button
+              onClick={() => { setMode('attendance'); handleReloadEncodings(); }}
+              style={{
+                padding: '0.5rem 1rem',
+                background: mode === 'attendance' ? 'linear-gradient(135deg,#10b981,#059669)' : 'rgba(255,255,255,0.05)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '8px',
+                fontWeight: 800,
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+              }}
+            >
+              <Scan size={15} /> Attendance
+            </button>
+            <button
+              onClick={() => setMode('registration')}
+              style={{
+                padding: '0.5rem 1rem',
+                background: mode === 'registration' ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : 'rgba(255,255,255,0.05)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '8px',
+                fontWeight: 800,
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+              }}
+            >
+              <Plus size={15} /> Register
+            </button>
           </div>
         </div>
       </motion.div>
 
-      {/* ══ BACKEND OFFLINE WARNING ══ */}
-      {backendOnline === false && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-          style={{
-            background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
-            borderRadius: 14, padding: '1rem 1.25rem',
-            display: 'flex', alignItems: 'center', gap: '0.75rem',
-          }}>
-          <WifiOff size={18} color="#f87171" />
-          <div>
-            <p style={{ margin: '0 0 0.15rem', fontWeight: 700, color: '#f8fafc', fontSize: '0.9rem' }}>
-              Backend Unavailable
-            </p>
-            <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.78rem' }}>
-              Start the FastAPI server: <code style={{ color: '#fbbf24', fontSize: '0.75rem' }}>uvicorn main:app --reload</code> in the <code style={{ color: '#fbbf24', fontSize: '0.75rem' }}>backend/</code> directory
-            </p>
-          </div>
-        </motion.div>
-      )}
-
-      {/* ══ NO ENCODINGS WARNING ══ */}
-      {backendOnline && !loadingEncodings && encodings.length === 0 && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-          style={{
-            background: 'rgba(212,175,55,0.06)', border: '1px solid rgba(212,175,55,0.2)',
-            borderRadius: 14, padding: '1rem 1.25rem',
-            display: 'flex', alignItems: 'center', gap: '0.75rem',
-          }}>
-          <Shield size={18} color="#D4AF37" />
-          <div style={{ flex: 1 }}>
-            <p style={{ margin: '0 0 0.1rem', fontWeight: 700, color: '#f8fafc', fontSize: '0.9rem' }}>
-              No Face Encodings Found
-            </p>
-            <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.78rem' }}>
-              Register employee faces using the Register Face page first. Encodings are stored in Firestore.
-            </p>
-          </div>
-          <button className="btn btn-ghost" onClick={handleReloadEncodings} style={{ flexShrink: 0, fontSize: '0.78rem' }}>
-            <RefreshCw size={13} /> Reload
-          </button>
-        </motion.div>
-      )}
-
-      {/* ══ MAIN CONTENT GRID ══ */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1.5rem', alignItems: 'start' }}>
-
-        {/* ── LEFT: Scanner ── */}
-        <div>
-          <AnimatePresence mode="wait">
-            {scanStatus === 'success' && greeting ? (
-              <GreetingCard key="greeting" name={greeting.name} confidence={greeting.confidence} time={greeting.time} />
-            ) : scanStatus === 'error' ? (
-              <NoMatchCard key="error" onRetry={handleRetry} />
+      {/* ══ MAIN CONTENT ══ */}
+      <AnimatePresence mode="wait">
+        {mode === 'registration' ? (
+          <motion.div key="registration" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            {greeting ? (
+              <GreetingCard {...greeting} particleRandoms={particleRandomsRef.current} />
+            ) : regStep === 0 ? (
+              <RegistrationForm onSubmit={handleRegistrationSubmit} loading={regLoading} />
             ) : (
-              <motion.div key="scanner"
-                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                style={{
-                  padding: '1px', borderRadius: 22,
-                  background: scanStatus === 'scanning'
-                    ? 'linear-gradient(135deg, rgba(212,175,55,0.4), rgba(212,175,55,0.1))'
-                    : 'rgba(255,255,255,0.05)',
-                  boxShadow: scanStatus === 'scanning' ? '0 20px 60px -10px rgba(212,175,55,0.2)' : 'none',
-                  transition: 'all 0.5s',
-                }}
-              >
-                <div style={{ background: 'rgba(11,15,26,0.85)', backdropFilter: 'blur(30px)', borderRadius: 21, padding: '1.5rem' }}>
-                  {backendOnline ? (
-                    <FaceScanner
-                      mode="attendance"
-                      status={scanStatus}
-                      onCapture={handleCapture}
-                      onError={handleRetry}
-                    />
-                  ) : (
-                    <div style={{ aspectRatio: '4/3', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', borderRadius: 16, gap: '0.75rem' }}>
-                      <WifiOff size={40} color="#334155" />
-                      <p style={{ margin: 0, color: '#334155', fontSize: '0.85rem', fontWeight: 600 }}>Backend offline</p>
-                    </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                <CaptureStepper currentStep={regStep - 1} angles={ANGLES} />
+                <div style={{ background: 'rgba(99,102,241,0.1)', borderRadius: 20, padding: '1.5rem', border: '1px solid rgba(99,102,241,0.2)' }}>
+                  <p style={{ margin: 0, color: '#fff', fontWeight: 700, marginBottom: '1rem' }}>
+                    📸 Step {regStep}/3: <span style={{ color: '#D4AF37' }}>{ANGLES[regStep - 1]}</span>
+                  </p>
+                  <FaceScanner
+                    mode="register"
+                    onCapture={handleRegistrationCapture}
+                    status="scanning"
+                  />
+                  {regError && (
+                    <p style={{ margin: '1rem 0 0', color: '#ef4444', fontSize: '0.9rem', fontWeight: 600 }}>{regError}</p>
                   )}
                 </div>
-              </motion.div>
+              </div>
             )}
-          </AnimatePresence>
-        </div>
+          </motion.div>
+        ) : (
+          <motion.div key="attendance" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            {greeting ? (
+              <GreetingCard {...greeting} particleRandoms={particleRandomsRef.current} />
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {/* Webcam */}
+                <FaceScanner
+                  mode="attendance"
+                  onCapture={handleCapture}
+                  status={scanStatus}
+                />
 
-        {/* ── RIGHT: Info Panel ── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-
-          {/* How It Works */}
-          <motion.div initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 }}
-            className="glass" style={{ borderRadius: 18, padding: '1.5rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.1rem' }}>
-              <div style={{ padding: '0.4rem', background: 'rgba(212,175,55,0.12)', borderRadius: 9, border: '1px solid rgba(212,175,55,0.25)' }}>
-                <Star size={15} color="#D4AF37" />
-              </div>
-              <h3 style={{ margin: 0, fontWeight: 800, fontSize: '0.9rem' }}>How It Works</h3>
-            </div>
-            {[
-              { step: '01', text: 'Position your face clearly in the frame', icon: '👤' },
-              { step: '02', text: 'System auto-captures and sends to AI engine', icon: '📸' },
-              { step: '03', text: 'Face matched against enrolled employees', icon: '🔍' },
-              { step: '04', text: 'Attendance marked automatically on match', icon: '✅' },
-            ].map(({ step, text, icon }) => (
-              <div key={step} style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginBottom: '0.85rem' }}>
+                {/* Session Stats */}
                 <div style={{
-                  width: 34, height: 34, borderRadius: 10,
-                  background: 'rgba(212,175,55,0.08)',
-                  border: '1px solid rgba(212,175,55,0.18)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '1rem', flexShrink: 0,
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                  gap: '1rem',
                 }}>
-                  {icon}
+                  <div style={{
+                    background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(139,92,246,0.05))',
+                    borderRadius: 16,
+                    padding: '1.25rem',
+                    border: '1px solid rgba(99,102,241,0.2)',
+                  }}>
+                    <p style={{ margin: '0 0 0.5rem', fontSize: '0.75rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Scans Taken</p>
+                    <p style={{ margin: 0, fontSize: '1.8rem', fontWeight: 900, color: '#D4AF37' }}>{scanCount}</p>
+                  </div>
+                  <div style={{
+                    background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(139,92,246,0.05))',
+                    borderRadius: 16,
+                    padding: '1.25rem',
+                    border: '1px solid rgba(99,102,241,0.2)',
+                  }}>
+                    <p style={{ margin: '0 0 0.5rem', fontSize: '0.75rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Registered Faces</p>
+                    <p style={{ margin: 0, fontSize: '1.8rem', fontWeight: 900, color: '#10b981' }}>{totalEmployees}</p>
+                  </div>
+                  <div style={{
+                    background: backendOnline ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+                    borderRadius: 16,
+                    padding: '1.25rem',
+                    border: backendOnline ? '1px solid rgba(16,185,129,0.2)' : '1px solid rgba(239,68,68,0.2)',
+                  }}>
+                    <p style={{ margin: '0 0 0.5rem', fontSize: '0.75rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Backend Status</p>
+                    <p style={{ margin: 0, fontSize: '1.8rem', fontWeight: 900, color: backendOnline ? '#10b981' : '#ef4444', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      {backendOnline ? <Wifi size={20} /> : <WifiOff size={20} />}
+                      {backendOnline ? 'Online' : 'Offline'}
+                    </p>
+                  </div>
                 </div>
-                <p style={{ margin: 0, fontSize: '0.82rem', color: '#94a3b8', lineHeight: 1.4 }}>
-                  <span style={{ color: '#D4AF37', fontWeight: 800, marginRight: '0.3rem' }}>{step}</span>
-                  {text}
-                </p>
+
+                {/* Error message */}
+                {lastError && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    style={{
+                      background: 'rgba(239,68,68,0.1)',
+                      borderRadius: 12,
+                      padding: '1rem',
+                      border: '1px solid rgba(239,68,68,0.2)',
+                      color: '#fca5a5',
+                      fontSize: '0.9rem',
+                    }}
+                  >
+                    {lastError}
+                  </motion.div>
+                )}
               </div>
-            ))}
+            )}
           </motion.div>
-
-          {/* Live Stats */}
-          <motion.div initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}
-            className="glass" style={{ borderRadius: 18, padding: '1.25rem' }}>
-            <h3 style={{ margin: '0 0 1rem', fontWeight: 800, fontSize: '0.85rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              Session Stats
-            </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-              {[
-                { label: 'Scans Taken',    value: scanCount,          color: '#8b5cf6' },
-                { label: 'Employees',       value: totalEmployees,     color: '#D4AF37' },
-                { label: 'Status',
-                  value: scanStatus === 'scanning' ? '🟢 Active'
-                       : scanStatus === 'success'  ? '✅ Matched'
-                       : scanStatus === 'error'    ? '❌ Error' : '⏸ Idle',
-                  color: '#06b6d4' },
-                { label: 'Backend',
-                  value: backendOnline === null ? '…' : backendOnline ? '✅ Online' : '❌ Offline',
-                  color: backendOnline ? '#34d399' : '#f87171' },
-              ].map(({ label, value, color }) => (
-                <div key={label} style={{ background: 'rgba(0,0,0,0.25)', borderRadius: 10, padding: '0.65rem 0.85rem' }}>
-                  <p style={{ margin: '0 0 0.15rem', fontSize: '0.58rem', color: '#475569', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.06em' }}>{label}</p>
-                  <p style={{ margin: 0, fontWeight: 800, fontSize: '0.92rem', color }}>{value}</p>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-
-          {/* Error log */}
-          {lastError && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-              style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 12, padding: '0.75rem 1rem' }}>
-              <p style={{ margin: '0 0 0.2rem', fontSize: '0.7rem', fontWeight: 700, color: '#f87171', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Last Error</p>
-              <p style={{ margin: 0, fontSize: '0.78rem', color: '#94a3b8' }}>{lastError}</p>
-              <button onClick={() => setLastError('')}
-                style={{ margin: '0.5rem 0 0', fontSize: '0.72rem', background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>
-                Dismiss ×
-              </button>
-            </motion.div>
-          )}
-
-          {/* Reload encodings */}
-          {backendOnline && (
-            <button className="btn btn-ghost" onClick={handleReloadEncodings} disabled={loadingEncodings}
-              style={{ width: '100%', fontSize: '0.82rem', justifyContent: 'center' }}>
-              <RefreshCw size={14} style={{ animation: loadingEncodings ? 'spin 1s linear infinite' : 'none' }} />
-              {loadingEncodings ? 'Refreshing Encodings…' : 'Refresh Face Database'}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Scan indicator strip */}
-      {scanStatus === 'scanning' && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: [0.3, 1, 0.3] }}
-          transition={{ duration: 2, repeat: Infinity }}
-          style={{
-            height: 2, borderRadius: 99,
-            background: 'linear-gradient(90deg, transparent, #D4AF37, transparent)',
-          }}
-        />
-      )}
+        )}
+      </AnimatePresence>
     </div>
   );
 };

@@ -47,13 +47,16 @@ const Layout = ({ children }) => {
         }}
       >
         {/* Logo */}
-        <div style={{ padding: '0 0.5rem', marginBottom: '2rem' }}>
-          <h1 style={{ fontSize: '1.6rem', fontWeight: 900, margin: 0 }} className="text-gradient">
-            NexusPay
-          </h1>
-          <p style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '2px' }}>
-            {role} portal
-          </p>
+        <div style={{ padding: '0 0.5rem', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <img src="/logo.png" alt="AttendX Logo" style={{ width: '48px', height: '48px', objectFit: 'contain' }} />
+          <div>
+            <h1 style={{ fontSize: '1.2rem', fontWeight: 900, margin: 0 }} className="text-gradient">
+              AttendX
+            </h1>
+            <p style={{ fontSize: '0.65rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '2px' }}>
+              {role} portal
+            </p>
+          </div>
         </div>
 
         {/* Nav Items */}
@@ -95,7 +98,7 @@ const Layout = ({ children }) => {
 
           <button
             onClick={async () => {
-              try { await signOut(auth); } catch(e) {}
+              try { await signOut(auth); } catch (e) { }
               logout();
             }}
             style={{

@@ -23,7 +23,7 @@ const QuoteCarousel = () => {
     const int = setInterval(() => setIdx(i => (i + 1) % QUOTES.length), 6000);
     return () => clearInterval(int);
   }, []);
-  
+
   return (
     <div style={{ position: 'relative', height: 26, overflow: 'hidden', marginTop: '0.4rem' }}>
       <AnimatePresence mode="wait">
@@ -107,27 +107,27 @@ const AdminDashboard = () => {
 
       <div style={{ maxWidth: 1100, margin: '0 auto', position: 'relative', zIndex: 10 }}>
         {/* ✨ Glassmorphic Hero Banner */}
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} 
+        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
           style={{ marginBottom: '2.5rem', padding: '1px', borderRadius: 24, background: 'linear-gradient(135deg, rgba(139,92,246,0.5), rgba(6,182,212,0.5), rgba(16,185,129,0.3))', position: 'relative', zIndex: 10, boxShadow: '0 20px 40px rgba(0,0,0,0.4)' }}>
-          
+
           <div style={{ background: 'rgba(10,10,18,0.7)', backdropFilter: 'blur(40px)', WebkitBackdropFilter: 'blur(40px)', borderRadius: 23, padding: '2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.5rem', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.05)', position: 'relative', overflow: 'hidden' }}>
-            
+
             {/* Internal subtle glow */}
             <div style={{ position: 'absolute', top: -50, left: -50, width: 250, height: 250, background: 'rgba(139,92,246,0.25)', filter: 'blur(60px)', borderRadius: '50%', pointerEvents: 'none' }} />
 
             <div style={{ position: 'relative', zIndex: 1 }}>
-               <h1 style={{ margin: '0 0 0.5rem', fontSize: '2.4rem', fontWeight: 900, letterSpacing: '-0.02em', WebkitTextFillColor: 'transparent', background: 'linear-gradient(to right, #f8fafc, #cbd5e1)', WebkitBackgroundClip: 'text' }}>
-                 Admin <span className="tg" style={{ filter: 'drop-shadow(0 0 20px rgba(139,92,246,0.6))' }}>Control Center</span> ⚡
-               </h1>
-               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '1rem', flexWrap: 'wrap' }}>
-                  <button onClick={() => setShowAddEmp(v => !v)} className="btn-v" style={{ padding: '0.7rem 1.25rem', boxShadow: '0 8px 20px rgba(139,92,246,0.3)' }}>
-                    <Plus size={16} /> Add Employee
-                  </button>
-                  <button onClick={() => navigate('/register-face')} className="btn-v" style={{ padding: '0.7rem 1.25rem', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', boxShadow: '0 8px 20px rgba(99,102,241,0.3)' }}>
-                    🧠 Register Face
-                  </button>
-                  <QuoteCarousel />
-                </div>
+              <h1 style={{ margin: '0 0 0.5rem', fontSize: '2.4rem', fontWeight: 900, letterSpacing: '-0.02em', WebkitTextFillColor: 'transparent', background: 'linear-gradient(to right, #f8fafc, #cbd5e1)', WebkitBackgroundClip: 'text' }}>
+                Admin <span className="tg" style={{ filter: 'drop-shadow(0 0 20px rgba(139,92,246,0.6))' }}>Control Center</span> ⚡
+              </h1>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+                <button onClick={() => setShowAddEmp(v => !v)} className="btn-v" style={{ padding: '0.7rem 1.25rem', boxShadow: '0 8px 20px rgba(139,92,246,0.3)' }}>
+                  <Plus size={16} /> Add Employee
+                </button>
+                <button onClick={() => navigate('/register-face')} className="btn-v" style={{ padding: '0.7rem 1.25rem', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', boxShadow: '0 8px 20px rgba(99,102,241,0.3)' }}>
+                  🧠 Register Face
+                </button>
+                <QuoteCarousel />
+              </div>
             </div>
 
             <div style={{ textAlign: 'right', position: 'relative', zIndex: 1 }}>

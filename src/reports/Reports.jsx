@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line, Legend } from 'recharts';
-import { TrendingUp, TrendingDown, Award } from 'lucide-react';
+import { TrendingUp, TrendingDown, Award, FileSpreadsheet, FileText, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { calcHours, calcFinalSalary, fmtHrs, STATUS_COLORS, getStatus } from '../utils/calc';
 import useStore from '../store/useAppStore';
 import { format } from 'date-fns';
@@ -62,6 +63,41 @@ const Reports = () => {
     months.push(format(d, 'yyyy-MM'));
   }
 
+  /* ── Export Functions ── */
+  const exportData = () => empStats.map(e => ({
+    'Employee Code': e.id,
+    'Full Name': e.fullName,
+    'Base Salary': e.baseSalary,
+    'Days Worked': e.days,
+    'Hours Worked': e.hours,
+    'Target Hours': e.targetHrs,
+    'Full Days': e.fullDays,
+    'Half Days': e.halfDays,
+    'Overtime Days': e.otDays,
+    'Late Days': e.lateDays,
+    'Final Estimated Salary': e.finalSal
+  }));
+
+  const exportExcel = () => {
+    if (empStats.length === 0) return;
+    const ws = XLSX.utils.json_to_sheet(exportData());
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Payroll Report");
+    XLSX.writeFile(wb, `Payroll_Report_${curMonth}.xlsx`);
+  };
+
+  const exportCSV = () => {
+    if (empStats.length === 0) return;
+    const ws = XLSX.utils.json_to_sheet(exportData());
+    const csv = XLSX.utils.sheet_to_csv(ws);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `Payroll_Report_${curMonth}.csv`;
+    link.click();
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
@@ -102,23 +138,31 @@ const Reports = () => {
       {/* ── Bar Chart ── */}
       {empStats.length > 0 && (
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-          className="glass" style={{ borderRadius: 16, padding: '1.5rem' }}>
-          <h3 style={{ margin: '0 0 1.25rem', fontWeight: 700, fontSize: '0.95rem' }}>Hours Worked vs Target</h3>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={chartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+          className="glass" style={{ borderRadius: 16, padding: '1.5rem', border: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <h3 style={{ margin: 0, fontWeight: 800, fontSize: '1.1rem', color: '#f8fafc' }}>Hours Worked vs Target</h3>
+          </div>
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={chartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }} barGap={6}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-              <XAxis dataKey="name" stroke="#475569" fontSize={11} tickLine={false} axisLine={false} />
-              <YAxis stroke="#475569" fontSize={11} tickLine={false} axisLine={false} />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend wrapperStyle={{ fontSize: '0.75rem', color: '#94a3b8' }} />
-              <Bar dataKey="Hours Worked" fill="url(#bv)" radius={[5,5,0,0]} />
-              <Bar dataKey="Target" fill="rgba(255,255,255,0.06)" radius={[5,5,0,0]} />
+              <XAxis dataKey="name" stroke="#64748b" fontSize={11} tickLine={false} axisLine={false} tickMargin={10} />
+              <YAxis stroke="#64748b" fontSize={11} tickLine={false} axisLine={false} tickMargin={10} />
+              <Tooltip cursor={{ fill: 'rgba(255,255,255,0.02)' }} content={<CustomTooltip />} />
+              <Legend wrapperStyle={{ fontSize: '0.8rem', color: '#94a3b8', paddingTop: '10px' }} iconType="circle" />
+              
               <defs>
-                <linearGradient id="bv" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.9} />
-                  <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.15} />
+                <linearGradient id="colorWorked" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#22d3ee" stopOpacity={0.9} />
+                  <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.7} />
+                </linearGradient>
+                <linearGradient id="colorTarget" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#fbbf24" stopOpacity={0.6} />
+                  <stop offset="100%" stopColor="#d97706" stopOpacity={0.1} />
                 </linearGradient>
               </defs>
+
+              <Bar dataKey="Target" fill="url(#colorTarget)" radius={[6,6,0,0]} maxBarSize={45} animationDuration={1500} animationEasing="ease-out" />
+              <Bar dataKey="Hours Worked" fill="url(#colorWorked)" radius={[6,6,0,0]} maxBarSize={45} animationDuration={1500} animationEasing="ease-out" />
             </BarChart>
           </ResponsiveContainer>
         </motion.div>
@@ -127,8 +171,18 @@ const Reports = () => {
       {/* ── Detail Table ── */}
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
         className="glass" style={{ borderRadius: 16, overflow: 'hidden' }}>
-        <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-          <h3 style={{ margin: 0, fontWeight: 700, fontSize: '0.95rem' }}>Payroll Breakdown — {format(new Date(curMonth + '-01'), 'MMMM yyyy')}</h3>
+        <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+          <h3 style={{ margin: 0, fontWeight: 800, fontSize: '1.05rem', color: '#f8fafc' }}>
+            Payroll Breakdown — {format(new Date(curMonth + '-01'), 'MMMM yyyy')}
+          </h3>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            <button onClick={exportCSV} disabled={empStats.length === 0} className="btn" style={{ padding: '0.45rem 1rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 10, opacity: empStats.length === 0 ? 0.5 : 1, transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+              <FileText size={15} color="#cbd5e1" /> <span style={{ color: '#f8fafc', fontWeight: 600 }}>CSV</span>
+            </button>
+            <button onClick={exportExcel} disabled={empStats.length === 0} className="btn" style={{ padding: '0.45rem 1rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'linear-gradient(135deg, rgba(52,211,153,0.15), rgba(16,185,129,0.1))', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)', borderRadius: 10, fontWeight: 800, opacity: empStats.length === 0 ? 0.5 : 1, transition: 'all 0.2s', boxShadow: '0 4px 15px rgba(52,211,153,0.15)' }}>
+              <FileSpreadsheet size={15} /> <span>Excel</span>
+            </button>
+          </div>
         </div>
         <div style={{ overflowX: 'auto' }}>
           {empStats.length === 0 ? (

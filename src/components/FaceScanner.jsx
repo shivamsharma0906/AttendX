@@ -15,17 +15,17 @@ import Webcam from 'react-webcam';
 const CAPTURE_INTERVAL_MS = 2500;
 
 const MESSAGES = {
-  idle:     { text: 'Position your face in the frame',  emoji: '👤' },
-  scanning: { text: 'Scanning…',                          emoji: '🔍' },
-  success:  { text: 'Face Recognized ✅',                 emoji: '✅' },
-  error:    { text: 'Not Recognized ❌',                  emoji: '❌' },
+  idle: { text: 'Position your face in the frame', emoji: '👤' },
+  scanning: { text: 'Scanning…', emoji: '🔍' },
+  success: { text: 'Face Recognized ✅', emoji: '✅' },
+  error: { text: 'Not Recognized ❌', emoji: '❌' },
 };
 
 const STATUS_COLORS = {
-  idle:     '#6366f1',
+  idle: '#6366f1',
   scanning: '#f59e0b',
-  success:  '#10b981',
-  error:    '#ef4444',
+  success: '#10b981',
+  error: '#ef4444',
 };
 
 /**
@@ -45,7 +45,7 @@ const FaceScanner = ({ mode = 'attendance', onCapture, status = 'idle', onError 
 
   /** Start/stop the auto-capture interval based on status */
   useEffect(() => {
-    if (mode === 'attendance' && status === 'scanning') {
+    if ((mode === 'attendance' || mode === 'register') && status === 'scanning') {
       intervalRef.current = setInterval(capture, CAPTURE_INTERVAL_MS);
     } else {
       clearInterval(intervalRef.current);
@@ -54,7 +54,7 @@ const FaceScanner = ({ mode = 'attendance', onCapture, status = 'idle', onError 
   }, [status, capture, mode]);
 
   const ringColor = STATUS_COLORS[status] || STATUS_COLORS.idle;
-  const message   = MESSAGES[status] || MESSAGES.idle;
+  const message = MESSAGES[status] || MESSAGES.idle;
 
   return (
     <div className="face-scanner-wrap">
