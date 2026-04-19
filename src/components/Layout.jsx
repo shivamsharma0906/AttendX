@@ -3,13 +3,15 @@ import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { LogOut, Calendar, Users, Upload, Activity, LayoutDashboard } from 'lucide-react';
 import useAppStore from '../store/useAppStore';
+import { auth, signOut } from '../services/firebase';
 
 const Layout = ({ children }) => {
-  const { user, role, logout } = useAppStore();
+  const { user, logout } = useAppStore();
   const location = useLocation();
+  const role = user?.role || 'employee';
 
   const adminMenu = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/admin' },
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/admin-dashboard' },
     { icon: Users, label: 'Employees', path: '/admin/employees' },
     { icon: Calendar, label: 'Calendar', path: '/admin/calendar' },
     { icon: Upload, label: 'Register OCR', path: '/admin/ocr' },
@@ -17,7 +19,7 @@ const Layout = ({ children }) => {
   ];
 
   const employeeMenu = [
-    { icon: LayoutDashboard, label: 'My Dashboard', path: '/employee' },
+    { icon: LayoutDashboard, label: 'My Dashboard', path: '/employee-dashboard' },
     { icon: Calendar, label: 'My Calendar', path: '/employee/calendar' },
   ];
 
@@ -92,7 +94,10 @@ const Layout = ({ children }) => {
           </div>
 
           <button
-            onClick={logout}
+            onClick={async () => {
+              try { await signOut(auth); } catch(e) {}
+              logout();
+            }}
             style={{
               width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
               background: 'rgba(244,63,94,0.08)', color: '#f43f5e', border: '1px solid rgba(244,63,94,0.18)',

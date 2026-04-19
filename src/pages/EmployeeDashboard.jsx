@@ -1,9 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import Layout from '../components/Layout';
 import useAppStore from '../store/useAppStore';
-import { Clock, CheckCircle, AlertCircle, Fingerprint } from 'lucide-react';
+import { Clock, CheckCircle, AlertCircle, Fingerprint, X } from 'lucide-react';
 import Tilt from 'react-parallax-tilt';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import toast, { Toaster } from 'react-hot-toast';
+import { getFirestore, collection, addDoc, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
+import { app } from '../services/firebase';
+import FaceScanner from '../components/FaceScanner';
+import { recognizeFace } from '../services/faceApi';
+
+const db = getFirestore(app);
 
 const S = {
   card: {
@@ -25,6 +32,66 @@ const EmployeeDashboard = () => {
   const [msg, setMsg] = useState('');
   const today = new Date().toISOString().split('T')[0];
 
+  // ── Face Attendance Modal state ──────────────────────────────
+  const [faceModal, setFaceModal]   = useState(false);
+  const [faceStatus, setFaceStatus] = useState('idle'); // idle|scanning|success|error
+
+  const openFaceModal  = () => { setFaceModal(true);  setFaceStatus('scanning'); };
+  const closeFaceModal = () => { setFaceModal(false); setFaceStatus('idle'); };
+
+  /**
+   * Called by FaceScanner on each auto-capture tick.
+   * Fetches all employee encodings from Firestore, sends to backend for recognition,
+   * then writes an attendance record if matched and not already logged today.
+   */
+  const handleFaceCapture = useCallback(async (base64) => {
+    if (faceStatus !== 'scanning') return;
+    try {
+      // Fetch stored embeddings for current user (employee must be registered)
+      const empSnap = await getDocs(query(collection(db, 'employees'), where('uid', '==', user?.id)));
+      if (empSnap.empty) { toast.error('Face not registered. Ask admin to register you.'); closeFaceModal(); return; }
+
+      const empData = empSnap.docs[0].data();
+      const storedEmbeddings = (empData.faceEmbeddings || []).map(str => {
+          try { return typeof str === 'string' ? JSON.parse(str) : str; } catch { return str; }
+      });
+      const { matched } = await recognizeFace(base64, storedEmbeddings);
+
+      if (!matched) return; // keep scanning silently
+
+      // Check if already logged today
+      const existing = await getDocs(query(
+        collection(db, 'attendance'),
+        where('employeeId', '==', empData.employeeId),
+        where('date', '==', today),
+      ));
+
+      if (!existing.empty) {
+        toast('Already marked for today ✅', { icon: '📋' });
+        setFaceStatus('success');
+        setTimeout(closeFaceModal, 2000);
+        return;
+      }
+
+      // Write attendance record
+      const now = new Date();
+      await addDoc(collection(db, 'attendance'), {
+        employeeId: empData.employeeId,
+        date:       today,
+        time:       now.toTimeString().split(' ')[0],
+        status:     'Present',
+        markedAt:   serverTimestamp(),
+      });
+
+      setFaceStatus('success');
+      toast.success('Attendance marked! 🎉', { duration: 3000 });
+      setTimeout(closeFaceModal, 2500);
+    } catch (err) {
+      setFaceStatus('error');
+      toast.error(err.message || 'Recognition failed.');
+    }
+  }, [faceStatus, user, today]);
+
   const handlePunch = (e) => {
     e.preventDefault();
     setLoading(true);
@@ -41,12 +108,43 @@ const EmployeeDashboard = () => {
 
   return (
     <Layout>
+      <Toaster position="top-center" toastOptions={{ style: { background: '#0d1424', color: '#e2e8f0', border: '1px solid rgba(255,255,255,0.08)' } }} />
+
+      {/* ── Face Attendance Modal ───────────────────────────────── */}
+      <AnimatePresence>
+        {faceModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+            <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 30 }}
+              style={{ background: 'rgba(12,16,28,0.95)', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 24, padding: '2rem', width: '100%', maxWidth: 480, position: 'relative', boxShadow: '0 30px 80px rgba(0,0,0,0.6)' }}>
+              <button onClick={closeFaceModal} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'rgba(255,255,255,0.06)', border: 'none', color: '#94a3b8', borderRadius: 8, padding: '0.4rem', cursor: 'pointer', display: 'flex' }}>
+                <X size={18} />
+              </button>
+              <h2 style={{ margin: '0 0 1.25rem', fontWeight: 800, fontSize: '1.2rem' }}>🔐 Mark Attendance</h2>
+              <FaceScanner
+                mode="attendance"
+                status={faceStatus}
+                onCapture={handleFaceCapture}
+                onError={() => setFaceStatus('scanning')}
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div style={{ maxWidth: 900, margin: '0 auto' }}>
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: '2rem' }}>
           <h1 style={{ fontSize: '1.8rem', fontWeight: 800, margin: 0 }}>
             Welcome back, <span className="text-gradient">{user?.name?.split(' ')[0]}</span> 👋
           </h1>
           <p style={{ color: '#64748b', marginTop: '0.3rem' }}>{nowDisplay}</p>
+
+          {/* ── Mark Attendance via Face ── */}
+          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+            onClick={openFaceModal}
+            style={{ marginTop: '1rem', padding: '0.75rem 1.5rem', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', border: 'none', borderRadius: 14, color: '#fff', fontWeight: 800, fontSize: '0.95rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 8px 24px rgba(99,102,241,0.35)', fontFamily: 'inherit' }}>
+            🧠 Mark Attendance via Face
+          </motion.button>
         </motion.div>
 
         <div className="r-grid-1-1">
@@ -113,3 +211,4 @@ const EmployeeDashboard = () => {
 };
 
 export default EmployeeDashboard;
+

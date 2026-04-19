@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import useAppStore from '../store/useAppStore';
 import { Users, Clock, Calendar, TrendingUp, Plus, Trash2 } from 'lucide-react';
@@ -61,6 +62,7 @@ const statCard = (icon, label, value, color, delay) => (
 
 const AdminDashboard = () => {
   const { user, employees, records, settings, addEmployee } = useAppStore();
+  const navigate = useNavigate();
   const [showAddEmp, setShowAddEmp] = useState(false);
   const [newName, setNewName] = useState('');
   const [newSalary, setNewSalary] = useState('');
@@ -71,7 +73,7 @@ const AdminDashboard = () => {
   const handleAddEmp = (e) => {
     e.preventDefault();
     if (!newName.trim() || !newSalary) return;
-    addEmployee({ id: Date.now().toString(), name: newName.trim(), baseSalary: Number(newSalary) });
+    addEmployee({ id: Date.now().toString(), name: newName.trim(), baseSalary: Number(newSalary), joinDate: todayStr });
     setNewName(''); setNewSalary(''); setShowAddEmp(false);
   };
 
@@ -117,12 +119,15 @@ const AdminDashboard = () => {
                <h1 style={{ margin: '0 0 0.5rem', fontSize: '2.4rem', fontWeight: 900, letterSpacing: '-0.02em', WebkitTextFillColor: 'transparent', background: 'linear-gradient(to right, #f8fafc, #cbd5e1)', WebkitBackgroundClip: 'text' }}>
                  Admin <span className="tg" style={{ filter: 'drop-shadow(0 0 20px rgba(139,92,246,0.6))' }}>Control Center</span> ⚡
                </h1>
-               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '1rem' }}>
-                 <button onClick={() => setShowAddEmp(v => !v)} className="btn-v" style={{ padding: '0.7rem 1.25rem', boxShadow: '0 8px 20px rgba(139,92,246,0.3)' }}>
-                   <Plus size={16} /> Add Employee
-                 </button>
-                 <QuoteCarousel />
-               </div>
+               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+                  <button onClick={() => setShowAddEmp(v => !v)} className="btn-v" style={{ padding: '0.7rem 1.25rem', boxShadow: '0 8px 20px rgba(139,92,246,0.3)' }}>
+                    <Plus size={16} /> Add Employee
+                  </button>
+                  <button onClick={() => navigate('/register-face')} className="btn-v" style={{ padding: '0.7rem 1.25rem', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', boxShadow: '0 8px 20px rgba(99,102,241,0.3)' }}>
+                    🧠 Register Face
+                  </button>
+                  <QuoteCarousel />
+                </div>
             </div>
 
             <div style={{ textAlign: 'right', position: 'relative', zIndex: 1 }}>

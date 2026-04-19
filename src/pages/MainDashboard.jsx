@@ -29,7 +29,7 @@ const QuoteCarousel = () => {
     const int = setInterval(() => setIdx(i => (i + 1) % QUOTES.length), 6000);
     return () => clearInterval(int);
   }, []);
-  
+
   return (
     <div style={{ position: 'relative', height: 26, overflow: 'hidden', marginTop: '0.4rem' }}>
       <AnimatePresence mode="wait">
@@ -641,7 +641,7 @@ const MainDashboard = () => {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#030305', position: 'relative', overflow: 'hidden' }}>
-      
+
       {/* 🔮 Insane Level Animated Glowing Background Orbs */}
       <motion.div animate={{ scale: [1, 1.2, 1], rotate: [0, 90, 0] }} transition={{ duration: 25, repeat: Infinity, ease: 'linear' }}
         style={{ position: 'absolute', top: '-10%', left: '-10%', width: '60vw', height: '60vw', background: 'radial-gradient(circle, rgba(139,92,246,0.18) 0%, rgba(0,0,0,0) 60%)', filter: 'blur(80px)', zIndex: 0, pointerEvents: 'none' }} />
@@ -706,21 +706,25 @@ const MainDashboard = () => {
 
       {/* Main content */}
       <main style={{ flex: 1, overflowY: 'auto', padding: '1.5rem 2.5rem', position: 'relative', zIndex: 10 }}>
-        
+
         {/* ✨ Glassmorphic Hero Banner */}
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} 
+        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
           style={{ marginBottom: '2.5rem', padding: '1px', borderRadius: 24, background: 'linear-gradient(135deg, rgba(139,92,246,0.5), rgba(6,182,212,0.5), rgba(16,185,129,0.3))', position: 'relative', zIndex: 10, boxShadow: '0 20px 40px rgba(0,0,0,0.4)' }}>
-          
+
           <div style={{ background: 'rgba(10,10,18,0.7)', backdropFilter: 'blur(40px)', WebkitBackdropFilter: 'blur(40px)', borderRadius: 23, padding: '2rem 2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.5rem', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.05)', position: 'relative', overflow: 'hidden' }}>
-            
+
             {/* Internal subtle glow */}
             <div style={{ position: 'absolute', top: -50, left: -50, width: 250, height: 250, background: 'rgba(139,92,246,0.25)', filter: 'blur(60px)', borderRadius: '50%', pointerEvents: 'none' }} />
 
             <div style={{ position: 'relative', zIndex: 1 }}>
-               <h1 style={{ margin: '0 0 0.2rem', fontSize: '2.2rem', fontWeight: 900, letterSpacing: '-0.02em' }}>
-                 Welcome back, <span className="tg" style={{ filter: 'drop-shadow(0 0 20px rgba(139,92,246,0.6))' }}>{user?.name?.split(' ')[0]}</span> 👋
-               </h1>
-               <QuoteCarousel />
+              <h1 style={{ margin: '0 0 0.2rem', fontSize: '2.2rem', fontWeight: 900, letterSpacing: '-0.02em' }}>
+                Welcome back,{" "}
+                <span className="tg" style={{ filter: 'drop-shadow(0 0 20px rgba(139,92,246,0.6))' }}>
+                  Admin
+                </span>{" "}
+                👋
+              </h1>
+              <QuoteCarousel />
             </div>
 
             <div style={{ textAlign: 'right', position: 'relative', zIndex: 1 }}>

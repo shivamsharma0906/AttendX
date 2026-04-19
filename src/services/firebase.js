@@ -1,27 +1,67 @@
-// Mocked Firebase Service Layer
-// In a real production deployment, you would replace this with actual Firebase imports
-// e.g. import { initializeApp } from "firebase/app";
+// firebase.js — Firebase app, auth, and Firestore initialization
+import { initializeApp } from "firebase/app";
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+} from "firebase/auth";
+import {
+  getFirestore,
+  collection,
+  getDocs,
+  getDoc,
+  doc,
+  setDoc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
+  orderBy,
+  serverTimestamp,
+} from "firebase/firestore";
 
-export const firebaseConfig = {
-  apiKey: "MOCK_API_KEY",
-  authDomain: "nexuspay.firebaseapp.mock",
-  projectId: "nexuspay",
-  storageBucket: "nexuspay.appspot.mock",
-  messagingSenderId: "123456789",
-  appId: "1:12345:web:mock123"
+// Firebase project configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyAyJkWANKXvvCIGEfy3Pck-X_yyi_ZP4v8",
+  authDomain: "attendx-90595.firebaseapp.com",
+  projectId: "attendx-90595",
+  storageBucket: "attendx-90595.firebasestorage.app",
+  messagingSenderId: "432948036993",
+  appId: "1:432948036993:web:e56ed07dfcbdce739d5480",
+  measurementId: "G-97VKPRWE4Z",
 };
 
-// Mock authentication logic
-export const mockFirebaseAuth = async (email, password) => {
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      if (email === 'admin@nexuspay.com' && password === 'admin') {
-        resolve({ id: 'admin1', name: 'Super Admin', role: 'admin', email });
-      } else if (email === 'emp@nexuspay.com' && password === 'emp') {
-        resolve({ id: 'emp1', name: 'John Employee', role: 'employee', email });
-      } else {
-        reject(new Error("Invalid credentials"));
-      }
-    }, 800);
-  });
+// Initialize Firebase (singleton — safe to call multiple times)
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// ── Auth exports ──────────────────────────────────────────────────────────────
+export { app, auth, db };
+export {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
 };
+
+// ── Firestore exports ─────────────────────────────────────────────────────────
+export {
+  collection,
+  getDocs,
+  getDoc,
+  doc,
+  setDoc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
+  orderBy,
+  serverTimestamp,
+};
+
+export { firebaseConfig };
