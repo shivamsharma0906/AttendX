@@ -5,9 +5,7 @@
     "devCommand": "vite",
     "cleanUrls": true,
     "trailingSlash": false,
-    "env": {
-        "VITE_API_URL": "@vite_api_url"
-    },
+    "ignoreCommand": "npm run build && echo true",
     "headers": [
         {
             "source": "/assets/(.*)",

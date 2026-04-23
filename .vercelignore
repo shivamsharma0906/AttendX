@@ -6,6 +6,7 @@ build_err.txt
 eslint_err.txt
 eslint_err_cmd.txt
 README.md
+.env
 .env.local
 .env.*.local
-vite.config.js
+
