@@ -13,12 +13,12 @@ from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
+from slowapi import Limiter, _rate_limit_exceeded_handler  # type: ignore
+from slowapi.errors import RateLimitExceeded  # type: ignore
+from slowapi.util import get_remote_address  # type: ignore
 
-import firebase_admin
-from firebase_admin import auth as firebase_auth, credentials, firestore
+import firebase_admin  # type: ignore
+from firebase_admin import auth as firebase_auth, credentials, firestore  # type: ignore
 
 from face_utils import (
     HAS_FR,
