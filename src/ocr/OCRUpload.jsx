@@ -43,7 +43,7 @@ const preprocessImage = (src) => new Promise((resolve, reject) => {
 ══════════════════════════════════════════════════════════ */
 const normalizeTime = (raw, role) => {
   if (!raw) return '';
-  const m = raw.match(/^(\d{1,2})[:\.](\d{2})$/);
+  const m = raw.match(/^(\d{1,2})[:.](\d{2})$/);
   if (!m) return '';
   let h = parseInt(m[1], 10);
   const min = m[2].padStart(2, '0');
@@ -81,7 +81,7 @@ const parseOCRText = (rawText, employees = []) => {
   const yearM = rawText.match(/\b(20\d{2})\b/);
   const year = yearM ? yearM[1] : String(today.getFullYear());
 
-  const dmShort = rawText.match(/(\d{1,2})[\-\/\.](\d{1,2})/);
+  const dmShort = rawText.match(/(\d{1,2})[-/.](20\d{2}|\d{2})?/) || rawText.match(/(\d{1,2})[-/.](\d{1,2})/);
   let globalDate = `${year}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
   if (dmShort) {
     globalDate = `${year}-${pad(dmShort[2])}-${pad(dmShort[1])}`;
@@ -105,7 +105,7 @@ const parseOCRText = (rawText, employees = []) => {
     if (/\b(name|in|out|date|attendance|log|register)\b/gi.test(line) && line.split(/\s+/).length < 4) return [];
 
     // Strip the date so times don't latch onto years (like 2026)
-    let noDate = line.replace(/(\d{1,2})[\-\/](\d{1,2})([\-\/]\d{2,4})?/g, ' ');
+    let noDate = line.replace(/(\d{1,2})[-/](\d{1,2})([-/]\d{2,4})?/g, ' ');
 
     // 🔥 OPTICAL ERROR CORRECTION: 
     // Fix known severe handwriting structural misreads from Tesseract before regex processing
@@ -117,11 +117,11 @@ const parseOCRText = (rawText, employees = []) => {
 
     const times = [];
     // A bulletproof matchAll regex that ignores spaces and catches substituted numbers (L, O, I, etc)
-    const timeRegex = /\b([0-2OoliI]?[0-9OoliI])\s*[:\.,;\-]?\s*([0-5Oo][0-9Oo])\b/gi;
+    const timeRegex = /\b([0-2OoliI]?[0-9OoliI])\s*[:.,;-]?\s*([0-5Oo][0-9Oo])\b/gi;
     const matches = [...noDate.matchAll(timeRegex)];
 
     for (const tm of matches) {
-      const hhStr = tm[1].replace(/[Oo]/g, '0').replace(/[liI\|]/g, '1');
+      const hhStr = tm[1].replace(/[Oo]/g, '0').replace(/[liI|]/g, '1');
       const mmStr = tm[2].replace(/[Oo]/g, '0');
       let h = parseInt(hhStr, 10);
       const mm = parseInt(mmStr, 10);
@@ -142,7 +142,7 @@ const parseOCRText = (rawText, employees = []) => {
 
     // Fallback if name is destroyed
     if (namePart.length < 2) {
-      namePart = line.replace(/[0-9Oo:\.,;\-]/g, '').trim();
+      namePart = line.replace(/[0-9Oo:.,;-]/g, '').trim();
     }
 
     let matched = null;

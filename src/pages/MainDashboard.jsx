@@ -69,29 +69,32 @@ const getDayStatus = (record) => {
 /* ── Sub-components ────────────────────────────────────────── */
 
 // Stat Card
-const StatCard = ({ icon: Icon, label, value, color, delay = 0 }) => (
-  <Tilt tiltMaxAngleX={6} tiltMaxAngleY={6} scale={1.02} transitionSpeed={2000} style={{ flex: 1 }}>
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay }}
-      style={{
-        background: 'rgba(18,18,26,0.8)', backdropFilter: 'blur(20px)',
-        border: `1px solid ${color}22`, borderRadius: 16, padding: '1.25rem 1.5rem',
-        position: 'relative', overflow: 'hidden', height: '100%'
-      }}
-    >
-      <div style={{ position: 'absolute', top: -30, right: -30, width: 120, height: 120, background: color + '14', borderRadius: '50%', filter: 'blur(35px)' }} />
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.75rem' }}>
-        <div style={{ padding: '0.45rem', background: color + '1a', borderRadius: 9 }}>
-          <Icon size={18} color={color} />
+const StatCard = ({ icon, label, value, color, delay = 0 }) => {
+  const Icon = icon;
+  return (
+    <Tilt tiltMaxAngleX={6} tiltMaxAngleY={6} scale={1.02} transitionSpeed={2000} style={{ flex: 1 }}>
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay }}
+        style={{
+          background: 'rgba(18,18,26,0.8)', backdropFilter: 'blur(20px)',
+          border: `1px solid ${color}22`, borderRadius: 16, padding: '1.25rem 1.5rem',
+          position: 'relative', overflow: 'hidden', height: '100%'
+        }}
+      >
+        <div style={{ position: 'absolute', top: -30, right: -30, width: 120, height: 120, background: color + '14', borderRadius: '50%', filter: 'blur(35px)' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.75rem' }}>
+          <div style={{ padding: '0.45rem', background: color + '1a', borderRadius: 9 }}>
+            <Icon size={18} color={color} />
+          </div>
+          <span style={{ color: '#64748b', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{label}</span>
         </div>
-        <span style={{ color: '#64748b', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{label}</span>
-      </div>
-      <p style={{ margin: 0, fontSize: '1.8rem', fontWeight: 900, color: '#f8fafc' }}>{value}</p>
-    </motion.div>
-  </Tilt>
-);
+        <p style={{ margin: 0, fontSize: '1.8rem', fontWeight: 900, color: '#f8fafc' }}>{value}</p>
+      </motion.div>
+    </Tilt>
+  );
+};
 
 /* ── TABS ──────────────────────────────────────────────────── */
 
@@ -338,7 +341,7 @@ const MyReportTab = ({ employees, records, settings }) => {
 
   const recordByDate = (dateStr) => records.find(r => r.empId === empId && r.date === dateStr);
 
-  const dotColors = { 'Full Day': '#34d399', 'Overtime (Late)': '#a78bfa', 'Half Day': '#fbbf24', 'Short': '#f87171', 'Active': '#06b6d4' };
+
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: 900, margin: '0 auto' }}>
@@ -522,15 +525,22 @@ const MyReportTab = ({ employees, records, settings }) => {
 
 // Tab: Employees management (admin only)
 const EmployeesTab = ({ employees, records }) => {
-  const { addEmployee, deleteEmployee, settings } = useAppStore();
-  const targetHrs = settings.workingDays * settings.hoursPerDay;
+  const { addEmployee, deleteEmployee } = useAppStore();
+
   const [name, setName] = useState('');
   const [salary, setSalary] = useState('');
 
   const handleAdd = (e) => {
     e.preventDefault();
     if (!name.trim() || !salary) return;
-    addEmployee({ id: Date.now().toString(), name: name.trim(), baseSalary: Number(salary) });
+    let nextId = 100;
+    if (employees?.length > 0) {
+      const ids = employees
+        .map(emp => parseInt(emp.id || emp.employeeId, 10))
+        .filter(n => !isNaN(n) && n >= 100 && n < 100000);
+      if (ids.length > 0) nextId = Math.max(100, ...ids) + 1;
+    }
+    addEmployee({ id: nextId.toString(), name: name.trim(), baseSalary: Number(salary) });
     setName(''); setSalary('');
   };
 

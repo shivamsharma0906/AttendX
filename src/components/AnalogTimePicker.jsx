@@ -55,7 +55,7 @@ const AnalogTimePicker = ({ value, onChange, color = "#D4AF37", size = 200 }) =>
         <div style={{ display: 'flex', gap: '0.15rem', alignItems: 'baseline' }}>
           <span 
             onClick={() => setMode('hour')}
-            style={{ fontSize: `${size * 0.008}rem`, fontSize: '1.5rem', fontWeight: 900, color: mode === 'hour' ? color : '#f8fafc', cursor: 'pointer', transition: 'all 0.2s' }}>
+            style={{ fontSize: '1.5rem', fontWeight: 900, color: mode === 'hour' ? color : '#f8fafc', cursor: 'pointer', transition: 'all 0.2s' }}>
             {String(displayH).padStart(2, '0')}
           </span>
           <span style={{ fontSize: '1.2rem', fontWeight: 900, color: '#475569' }}>:</span>

@@ -16,7 +16,6 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-// eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import {
@@ -403,7 +402,14 @@ const FaceRecognitionTab = () => {
     setRegError('');
 
     try {
-      const employeeId = `emp-${Date.now()}`;
+      let nextId = 100;
+      if (localEmployees?.length > 0) {
+        const ids = localEmployees
+          .map(e => parseInt(e.id || e.employeeId, 10))
+          .filter(n => !isNaN(n) && n >= 100 && n < 100000);
+        if (ids.length > 0) nextId = Math.max(100, ...ids) + 1;
+      }
+      const employeeId = nextId.toString();
       const result = await registerFace(images, employeeId, regName);
 
       if (result.success) {
@@ -452,7 +458,7 @@ const FaceRecognitionTab = () => {
     isProcessingRef.current = true;
 
     try {
-      const result = await recognizeFace(base64Image, encodings);
+      const result = await recognizeFace(base64Image);
 
       if (result.matched && result.employeeId) {
         setScanStatus('success');

@@ -52,7 +52,7 @@ const calcStatus = (dateStr, records, empId) => {
 };
 
 /* ── Month Stat Chips ── */
-const MonthStats = ({ empId, records, currentDate, settings }) => {
+const MonthStats = ({ empId, records, currentDate }) => {
   const stats = useMemo(() => {
     if (!empId) return null;
     const monthStr = format(currentDate, 'yyyy-MM');

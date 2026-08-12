@@ -10,20 +10,20 @@ import { motion } from 'framer-motion';
  * @param {string} color - The accent color for markers/hands (default: Gold).
  */
 const AnalogClock = ({ date, size = 200, color = "#D4AF37" }) => {
-  const [now, setNow] = useState(date || new Date());
+  const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
-    if (date) {
-      setNow(date);
-    } else {
+    if (!date) {
       const t = setInterval(() => setNow(new Date()), 1000);
       return () => clearInterval(t);
     }
+    return undefined;
   }, [date]);
 
-  const h = now.getHours();
-  const m = now.getMinutes();
-  const s = now.getSeconds();
+  const displayTime = date || now;
+  const h = displayTime.getHours();
+  const m = displayTime.getMinutes();
+  const s = displayTime.getSeconds();
 
   const hDeg = (h % 12) * 30 + m * 0.5;
   const mDeg = m * 6 + s * 0.1;

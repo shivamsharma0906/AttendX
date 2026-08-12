@@ -12,7 +12,7 @@
 import React, { useState, useCallback } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { getFirestore, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
@@ -38,8 +38,9 @@ const ProgressDots = ({ current, total }) => (
 );
 
 const RegisterFace = () => {
-  const [empName,   setEmpName]   = useState('');
-  const [empId,     setEmpId]     = useState('');
+  const location = useLocation();
+  const [empName,   setEmpName]   = useState(location.state?.name || '');
+  const [empId,     setEmpId]     = useState(location.state?.id || '');
   const [status,    setStatus]    = useState('idle');   // idle | scanning | success | error
   const [phase,     setPhase]     = useState('form');   // form | scanning | done
   const [captured,  setCaptured]  = useState([]);       // collected base64 images
@@ -52,24 +53,7 @@ const RegisterFace = () => {
     setPhase('scanning');
   };
 
-  /** Called by FaceScanner on every auto-capture tick */
-  const handleCapture = useCallback(async (base64) => {
-    setCaptured(prev => {
-      const next = [...prev, base64];
-
-      if (next.length < REQUIRED_IMAGES) {
-        // Not enough images yet — keep scanning
-        return next;
-      }
-
-      // We have all 3; stop the scanner and trigger registration
-      setStatus('idle');
-      submitRegistration(next);
-      return next;
-    });
-  }, [empName, empId]);  // eslint-disable-line react-hooks/exhaustive-deps
-
-  const submitRegistration = async (images) => {
+  const submitRegistration = useCallback(async (images) => {
     setStatus('scanning'); // show spinner while calling API
     try {
       const { embeddings } = await registerFace(images, empId, empName);
@@ -88,7 +72,24 @@ const RegisterFace = () => {
       setStatus('error');
       toast.error(err.message || 'Registration failed. Please try again.', { duration: 5000 });
     }
-  };
+  }, [empId, empName]);
+
+  /** Called by FaceScanner on every auto-capture tick */
+  const handleCapture = useCallback(async (base64) => {
+    setCaptured(prev => {
+      const next = [...prev, base64];
+
+      if (next.length < REQUIRED_IMAGES) {
+        // Not enough images yet — keep scanning
+        return next;
+      }
+
+      // We have all 3; stop the scanner and trigger registration
+      setStatus('idle');
+      submitRegistration(next);
+      return next;
+    });
+  }, [submitRegistration]);
 
   const reset = () => {
     setEmpName(''); setEmpId('');
@@ -104,7 +105,7 @@ const RegisterFace = () => {
           style={{ padding: '1px', borderRadius: 24, background: 'linear-gradient(135deg,rgba(99,102,241,0.5),rgba(16,185,129,0.3))' }}>
           <div className="glass" style={{ borderRadius: 23, padding: '2.5rem 2rem', position: 'relative' }}>
             {/* Back button */}
-            <Link to="/admin-dashboard" style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', color: '#94a3b8', background: 'rgba(255,255,255,0.06)', borderRadius: 10, padding: '0.4rem', display: 'flex', transition: 'background 0.2s', zIndex: 10 }}>
+            <Link to="/admin/dashboard" style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', color: '#94a3b8', background: 'rgba(255,255,255,0.06)', borderRadius: 10, padding: '0.4rem', display: 'flex', transition: 'background 0.2s', zIndex: 10 }}>
               <ArrowLeft size={20} />
             </Link>
             <h2 style={{ margin: '0 0 0.4rem', fontWeight: 900, fontSize: '1.4rem', paddingRight: '2.5rem', lineHeight: '1.2' }}>

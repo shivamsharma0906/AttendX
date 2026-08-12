@@ -6,19 +6,27 @@ All functions are pure (no I/O), making them testable independently.
 import base64
 import io
 import logging
+import os
 import numpy as np
 from PIL import Image
 
 logger = logging.getLogger(__name__)
 
-# Graceful fallback: if dlib/face_recognition is not installed, run in mock mode
+# Environment check: FAIL in production if dlib / face_recognition is missing
+ENV = os.getenv("ENVIRONMENT", "development").lower()
+
 try:
     import face_recognition
     HAS_FR = True
-    logger.info("face_recognition loaded successfully — running in REAL mode.")
+    logger.info("face_recognition (dlib) loaded successfully — running in REAL mode.")
 except ImportError:
     HAS_FR = False
-    logger.warning("face_recognition (dlib) NOT installed — running in MOCK mode. Recognitions will always pass.")
+    if ENV == "production":
+        logger.critical("FATAL: face_recognition (dlib) NOT installed in PRODUCTION environment. Refusing to run in silent mock mode.")
+        # In production, raise exception to prevent silent fallback
+        raise RuntimeError("face_recognition (dlib) dependency missing in production environment.")
+    else:
+        logger.warning("face_recognition (dlib) NOT installed — running in MOCK mode. Responses will include 'mock_mode: true'.")
 
 
 # ─── Image Decoding ───────────────────────────────────────────────────────────
@@ -26,11 +34,7 @@ except ImportError:
 def decode_base64_image(b64_string: str) -> np.ndarray:
     """
     Decodes a base64 image string (with or without data URI prefix) into an RGB numpy array.
-
-    Raises:
-        ValueError: If the image bytes cannot be decoded or opened.
     """
-    # Strip data URI prefix e.g. "data:image/jpeg;base64,..."
     if "," in b64_string:
         b64_string = b64_string.split(",", 1)[1]
 
@@ -47,17 +51,9 @@ def decode_base64_image(b64_string: str) -> np.ndarray:
 def extract_encoding(image_array: np.ndarray) -> list[float]:
     """
     Extracts a single 128-d face encoding from an RGB numpy array.
-
-    Returns:
-        A list of 128 floats.
-    Raises:
-        ValueError: If no face (or more than 1) is detected.
     """
     if not HAS_FR:
-        # MOCK: generate a reproducible fake encoding based on image mean
-        seed = int(image_array.mean()) % 256
-        rng = np.random.default_rng(seed)
-        return rng.random(128).tolist()
+        raise RuntimeError("face_recognition (dlib) is unavailable (running in mock mode).")
 
     encodings = face_recognition.face_encodings(image_array)
 
@@ -74,10 +70,6 @@ def extract_encoding(image_array: np.ndarray) -> list[float]:
 def average_encodings(encodings: list[list[float]]) -> list[float]:
     """
     Averages multiple 128-d face encodings into a single stable master vector.
-    Using the mean reduces noise from individual capture frames.
-
-    Returns:
-        A single 128-d float list, or empty list if input is empty.
     """
     if not encodings:
         return []
@@ -91,27 +83,16 @@ def identify_face(
     candidate_encoding: list[float],
     employees: list[dict],
     tolerance: float = 0.55,
-) -> tuple[bool, str | None, float]:
+) -> tuple[bool, str | None, float, float]:
     """
     Identifies WHO the candidate is by comparing against ALL employee encodings.
-    This is Kiosk / 1:N recognition — not 1:1 verification.
-
-    Args:
-        candidate_encoding: 128-d float list from the live camera frame.
-        employees:          List of dicts: [{"employeeId": str, "encoding": list[float]}]
-        tolerance:          Match threshold (lower = stricter). Recommended 0.5–0.6.
-
-    Returns:
-        Tuple of (matched: bool, employeeId: str | None, confidence: float 0..1)
+    Returns (matched, employee_id, confidence, best_distance).
     """
     if not employees:
-        return False, None, 0.0
+        return False, None, 0.0, 1.0
 
     if not HAS_FR:
-        # MOCK MODE: always return first employee as matched
-        mock_id = employees[0]["employeeId"]
-        logger.warning(f"MOCK recognition — returning first employee: {mock_id}")
-        return True, mock_id, 0.99
+        raise RuntimeError("face_recognition (dlib) is unavailable (running in mock mode).")
 
     candidate_np = np.array(candidate_encoding)
     best_id = None
@@ -130,7 +111,7 @@ def identify_face(
 
     matched = best_distance <= tolerance
     confidence = round(float(1.0 - best_distance), 3)
-    confidence = max(0.0, min(1.0, confidence))  # clamp to [0, 1]
+    confidence = max(0.0, min(1.0, confidence))
 
     logger.info(f"Best match: {best_id} | distance: {best_distance:.4f} | confidence: {confidence} | matched: {matched}")
-    return matched, (best_id if matched else None), confidence
+    return matched, (best_id if matched else None), confidence, float(best_distance)
