@@ -6,8 +6,8 @@ import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 try:
-    import face_recognition
-    import dlib
+    import face_recognition  # type: ignore
+    import dlib  # type: ignore
     print(f"Libraries imported successfully:")
     print(f"  dlib version: {dlib.__version__}")
     print(f"  face_recognition version: {face_recognition.__version__}")

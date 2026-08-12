@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 ENV = os.getenv("ENVIRONMENT", "development").lower()
 
 try:
-    import face_recognition
+    import face_recognition  # type: ignore
     HAS_FR = True
     logger.info("face_recognition (dlib) loaded successfully — running in REAL mode.")
 except ImportError:
